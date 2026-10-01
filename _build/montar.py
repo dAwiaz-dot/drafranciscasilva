@@ -71,6 +71,10 @@ css = css.replace("</style>", """
 .hero-card { top: 28px; bottom: auto !important; }
 .fs-cases { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .fs-cases .case-card img { aspect-ratio: 4 / 5; object-fit: cover; }
+/* Link discreto entre o site pessoal e o da clínica */
+.footer-sister-link { opacity: .55; }
+.footer-sister-link:hover { opacity: 1; }
+.clinic-photo img { max-height: 560px; object-fit: cover; object-position: center top; }
 @media (max-width: 760px) {
   .fs-cases { grid-template-columns: 1fr; }
   .hero-photo { margin: 0 auto; }
@@ -84,10 +88,13 @@ js = js.replace('"draJessicaCookieConsent"', '"draFranciscaCookieConsent"')
 js = re.sub(r'if \("serviceWorker" in navigator\) \{.*?\n\}\n', "", js, flags=re.S)
 assert "GTM-P476T6J7" not in js and "serviceWorker" not in js
 
-corpo = (base / "_build" / "body.html").read_text(encoding="utf-8")
-corpo = re.sub(r'(<a class="whatsapp-float"[^>]*>\n).*?(</a>)', lambda m: m.group(1) + svg_whatsapp + m.group(2), corpo, count=1, flags=re.S)
+def montar_corpo(arquivo):
+    corpo = (base / "_build" / arquivo).read_text(encoding="utf-8")
+    return re.sub(r'(<a class="whatsapp-float"[^>]*>\n).*?(</a>)', lambda m: m.group(1) + svg_whatsapp + m.group(2), corpo, count=1, flags=re.S)
 
-head = """<!DOCTYPE html>
+
+def montar_head(titulo, descricao, schema):
+    return f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -96,24 +103,36 @@ head = """<!DOCTYPE html>
 <meta name="color-scheme" content="dark">
 <meta name="format-detection" content="telephone=no">
 <meta name="robots" content="index, follow">
-<meta name="description" content="Harmonização facial em São Paulo com a Dra. Francisca Silva, CRO-SP 102541. Botox, preenchimento labial, lipo de papada, bichectomia, fios de PDO, Laser CO₂ e endolifting com avaliação individual.">
+<meta name="description" content="{descricao}">
 <meta name="author" content="Dra. Francisca Silva">
 <meta property="og:locale" content="pt_BR">
 <meta property="og:site_name" content="Dra. Francisca Silva">
-<meta property="og:title" content="Harmonização Facial em São Paulo | Dra. Francisca Silva">
-<meta property="og:description" content="Botox, preenchimentos, lipo de papada, bichectomia, fios de PDO e rejuvenescimento com técnicas seguras e protocolo personalizado.">
+<meta property="og:title" content="{titulo}">
+<meta property="og:description" content="{descricao}">
 <meta property="og:type" content="website">
 <meta property="og:image" content="assets/images/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<title>Harmonização Facial em São Paulo | Dra. Francisca Silva</title>
+<title>{titulo}</title>
 <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script type="application/ld+json">
-{
+{schema}
+</script>
+"""
+
+
+paginas = [
+    {
+        # Site pessoal (CPF) da Dra. Francisca
+        "corpo": "body.html",
+        "saida": "index.html",
+        "titulo": "Harmonização Facial em São Paulo | Dra. Francisca Silva",
+        "descricao": "Harmonização facial em São Paulo com a Dra. Francisca Silva, CRO-SP 102541. Botox, preenchimento labial, lipo de papada, bichectomia, fios de PDO, Laser CO₂ e endolifting com avaliação individual.",
+        "schema": """{
   "@context": "https://schema.org",
   "@type": "Dentist",
   "name": "Dra. Francisca Silva - Harmonização Facial",
@@ -124,10 +143,28 @@ head = """<!DOCTYPE html>
   "sameAs": ["https://www.instagram.com/drafranciscasilva/"],
   "medicalSpecialty": "Harmonização Facial",
   "availableService": ["Botox", "Preenchimento labial", "Preenchimento de mandíbula e mento", "Lipo de papada", "Bichectomia", "Fios de PDO", "Endolifting", "Ultrassom microfocado", "Laser CO2", "Jato de plasma", "Gengivoplastia"]
-}
-</script>
-"""
+}""",
+    },
+    {
+        # Site da clínica (CNPJ). DADOS DE EXEMPLO até a Dra. aprovar e mandar os reais:
+        # nome, endereço, CNPJ, horário e Instagram da clínica.
+        "corpo": "body-clinica.html",
+        "saida": "clinica.html",
+        "titulo": "Clínica FS | Estética Facial e Odontologia em São Paulo",
+        "descricao": "Clínica de estética facial e odontologia em São Paulo, com responsabilidade técnica da Dra. Francisca Silva, CRO-SP 102541. Harmonização facial, Botox, preenchimentos e tecnologias de rejuvenescimento.",
+        "schema": """{
+  "@context": "https://schema.org",
+  "@type": "MedicalClinic",
+  "name": "Clínica FS - Estética Facial e Odontologia",
+  "telephone": "+55-11-99995-8264",
+  "address": { "@type": "PostalAddress", "addressLocality": "São Paulo", "addressRegion": "SP", "addressCountry": "BR" },
+  "employee": { "@type": "Person", "name": "Dra. Francisca Silva", "jobTitle": "Cirurgiã-dentista responsável técnica" }
+}""",
+    },
+]
 
-saida = head + css + "\n</head>\n" + corpo + "\n" + js + "</body>\n</html>\n"
-(base / "index.html").write_text(saida, encoding="utf-8")
-print("index.html gerado:", len(saida), "bytes")
+for pagina in paginas:
+    head = montar_head(pagina["titulo"], pagina["descricao"], pagina["schema"])
+    saida = head + css + "\n</head>\n" + montar_corpo(pagina["corpo"]) + "\n" + js + "</body>\n</html>\n"
+    (base / pagina["saida"]).write_text(saida, encoding="utf-8")
+    print(pagina["saida"], "gerado:", len(saida), "bytes")
